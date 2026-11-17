@@ -43,6 +43,12 @@ The alternative S→C→F→I→G costs 16. S→A→E→H→G costs 17. Fewer ed
 
 A\* ranks frontier nodes by **f(n)=g(n)+h(n)**. The heuristic h estimates cost remaining to G. Setting h=0 gives Dijkstra.
 
+The copy below keeps every edge cost unchanged and labels each node with its fixed heuristic h(n). This makes the A* calculation visible without switching between the graph and a table.
+
+![A star worked graph with heuristic costs](../assets/worked_graph_astar_h.png)
+
+Edge labels are travel costs; purple labels inside nodes are estimates of remaining cost to G. These are fixed heuristic estimates, not accumulated costs from S. During the trace, calculate g(n) from the route found so far, then f(n)=g(n)+h(n). Keep h on the reference graph and record changing g and f values in the trace table.
+
 Use these heuristics for the same weighted graph:
 
 | Node | S | A | B | C | D | E | F | H | I | G |
