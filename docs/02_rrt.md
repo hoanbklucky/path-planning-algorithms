@@ -50,4 +50,4 @@ For a six-joint arm, 100 values per joint would give 100⁶ grid configurations.
 
 The simulator uses seed=7, step=1.5, goal bias=0.1, and a 5000-iteration budget. New random seed changes the tree. Reset repeats the seed.
 
-Next: [RRT*](03_rrt_star.md).
+Next: [RRT\*](03_rrt_star.md).

@@ -13,14 +13,14 @@ The provided simulator uses a point robot in a known 2D map. Walls represent for
 | Planner | Representation | How exploration proceeds | Meaning of its result |
 |---|---|---|---|
 | Dijkstra | Weighted graph or grid | Expand the smallest accumulated cost g | Minimum cost on that graph with nonnegative edge costs |
-| A* | Weighted graph or grid | Expand minimum f=g+h | Minimum graph cost under appropriate heuristic and implementation conditions |
+| A\* | Weighted graph or grid | Expand minimum f=g+h | Minimum graph cost under appropriate heuristic and implementation conditions |
 | RRT | A growing configuration tree | Extend toward random samples | Feasible route; generally not optimal |
-| RRT* | A growing tree with costs | Select lower-cost parents and rewire | Improves an incumbent route; asymptotic optimality under standard assumptions |
+| RRT\* | A growing tree with costs | Select lower-cost parents and rewire | Improves an incumbent route; asymptotic optimality under standard assumptions |
 | PRM | A sampled roadmap graph | Build connections, then run graph search | Best route on the constructed finite roadmap |
 
 **PRM** means Probabilistic Roadmap. “RPM” in the original request is interpreted as PRM here.
 
-A* and Dijkstra can search a PRM roadmap too. “Graph search” and “sampling” are not mutually exclusive: PRM samples a graph, then searches it.
+A\* and Dijkstra can search a PRM roadmap too. “Graph search” and “sampling” are not mutually exclusive: PRM samples a graph, then searches it.
 
 ## Collision checking applies to edges
 
@@ -34,4 +34,4 @@ Expanded grid cells, RRT iterations, PRM edge tests, and animation seconds measu
 
 ## Learning sequence
 
-Read [Dijkstra and A*](01_dijkstra_astar.md), then [RRT](02_rrt.md), [RRT*](03_rrt_star.md), and [PRM](04_prm.md). Run the [guided activities](05_simulation_activities.md). The [resource list](06_resources.md) links optional browser simulators, videos, MATLAB demonstrations, and primary references.
+Read [Dijkstra and A\*](01_dijkstra_astar.md), then [RRT](02_rrt.md), [RRT\*](03_rrt_star.md), and [PRM](04_prm.md). Run the [guided activities](05_simulation_activities.md). The [resource list](06_resources.md) links optional browser simulators, videos, MATLAB demonstrations, and primary references.

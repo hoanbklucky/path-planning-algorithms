@@ -1,6 +1,6 @@
 # RRT star
 
-RRT* adds **cost-aware parent selection** and **rewiring** to RRT. It can find a feasible path first and improve it as more samples are processed. Do not stop the animation at the first orange path.
+RRT\* adds **cost-aware parent selection** and **rewiring** to RRT. It can find a feasible path first and improve it as more samples are processed. Do not stop the animation at the first orange path.
 
 ## One iteration
 
@@ -41,7 +41,7 @@ The stored g values are inputs from an existing tree with earlier detours. This 
 
 ## What the simulator shows
 
-Select **RRT***. Blue edges form the current tree; a red dashed edge marks an old connection replaced in this iteration, and a purple line marks the rewired connection. Orange shows the current best start-to-goal route. The status reports iteration, cumulative rewires, and incumbent length.
+Select **RRT\***. Blue edges form the current tree; a red dashed edge marks an old connection replaced in this iteration, and a purple line marks the rewired connection. Orange shows the current best start-to-goal route. The status reports iteration, cumulative rewires, and incumbent length.
 
 The defaults use 800 iterations, step=1.5, goal bias=0.1, and seed=7. Unlike basic RRT, this run continues after finding a goal connection. A newly drawn edge need not be part of the orange path.
 
@@ -49,7 +49,7 @@ The neighbor radius is r(n)=min(η, γ sqrt(log(n)/n)) in 2D, with γ=18 in this
 
 ## Guarantees and limits
 
-RRT* is asymptotically optimal under the standard sampling, clearance, local-planner, and connection-parameter assumptions. This is an infinite-sample property, not a claim that an 800-iteration run finds the exact optimum or outperforms RRT on every trial. Neighborhood rules and constants matter.
+RRT\* is asymptotically optimal under the standard sampling, clearance, local-planner, and connection-parameter assumptions. This is an infinite-sample property, not a claim that an 800-iteration run finds the exact optimum or outperforms RRT on every trial. Neighborhood rules and constants matter.
 
 This teaching code uses linear nearest-neighbor scans and explicit descendant updates for clarity, rather than an optimized spatial index. It supports 2D straight-line geometry, not full robot dynamics.
 

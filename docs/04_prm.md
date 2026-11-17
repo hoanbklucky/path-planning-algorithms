@@ -1,6 +1,6 @@
 # Probabilistic Roadmap
 
-PRM samples **free configurations** and connects nearby samples with valid local motions. The resulting graph is a roadmap. Attach the start and goal, then use a graph algorithm such as Dijkstra or A* to find a route through the roadmap.
+PRM samples **free configurations** and connects nearby samples with valid local motions. The resulting graph is a roadmap. Attach the start and goal, then use a graph algorithm such as Dijkstra or A\* to find a route through the roadmap.
 
 ## Two conceptual stages
 

@@ -41,7 +41,7 @@ The alternative S→C→F→I→G costs 16. S→A→E→H→G costs 17. Fewer ed
 
 ## A star
 
-A* ranks frontier nodes by **f(n)=g(n)+h(n)**. The heuristic h estimates cost remaining to G. Setting h=0 gives Dijkstra.
+A\* ranks frontier nodes by **f(n)=g(n)+h(n)**. The heuristic h estimates cost remaining to G. Setting h=0 gives Dijkstra.
 
 Use these heuristics for the same weighted graph:
 
@@ -69,7 +69,7 @@ After B, D has g=2+4=6 and f=6+6=12. F initially has g=2+7=9 and f=9+4=13.
 
 After C, F improves to g=6+2=8 and f=8+4=12.
 
-After H, G has f=14; I has g=13 but f=15. A* selects G and stops without expanding I. Both planners return cost 14. This graph saves only one expansion; a small example should not imply that the saving is always large.
+After H, G has f=14; I has g=13 but f=15. A\* selects G and stops without expanding I. Both planners return cost 14. This graph saves only one expansion; a small example should not imply that the saving is always large.
 
 ### Heuristics for a robot grid
 
@@ -83,7 +83,7 @@ Here dx=abs(x−xG), dy=abs(y−yG). Heuristic and path-cost units must agree. F
 
 **Admissible:** h never overestimates true remaining cost. **Consistent:** h(u)≤c(u,v)+h(v) for every edge, with h(G)=0. For example h(C)=6≤2+h(F)=6.
 
-With consistency, standard graph A* can close expanded nodes permanently. With admissibility alone, an implementation must reopen nodes when a better g is found to retain the usual optimality guarantee. Overestimating can sacrifice optimality.
+With consistency, standard graph A\* can close expanded nodes permanently. With admissibility alone, an implementation must reopen nodes when a better g is found to retain the usual optimality guarantee. Overestimating can sacrifice optimality.
 
 ## Larger map and two separate teaching phases
 
@@ -94,9 +94,9 @@ The shared simulation uses a 16×12 grid, S=(1,2), G=(14,9), and three staggered
 | Planner | Path cost | Expanded cells including G |
 |---|---:|---:|
 | Dijkstra | 28 | 145 |
-| A* | 28 | 97 |
+| A\* | 28 | 97 |
 
-Grid neighbors are considered right, up, left, down. Dijkstra ties use insertion order; A* prefers smaller h, then insertion order. Counts and chosen equal-cost routes can change with these rules.
+Grid neighbors are considered right, up, left, down. Dijkstra ties use insertion order; A\* prefers smaller h, then insertion order. Counts and chosen equal-cost routes can change with these rules.
 
 **Select next node** first highlights the selected cell without updating its neighbors. **Inspect neighbors** reveals cost updates on the following click. Previously discovered costs stay visible. Playback preserves both phases.
 
