@@ -76,4 +76,54 @@ class Planners(unittest.TestCase):
         f=list(prm(seed=7,samples=0,k=0))[-1]
         self.assertFalse(f.path);self.assertEqual(f.phase,'done')
 
+
+
+class TeachingDetails(unittest.TestCase):
+    def test_next_grid_node_matches_actual_selection(self):
+        for astar in [False,True]:
+            expected=None
+            for f in base.grid_search(astar):
+                if f.phase=='select':
+                    if expected is not None:self.assertEqual(f.current,expected)
+                    self.assertIn('WHY:',f.note)
+                    self.assertIn('smallest frontier f' if astar else 'smallest frontier g',f.note)
+                if f.phase=='expand':expected=f.next_node
+    def test_rrt_preview_and_accumulated_costs(self):
+        old_nodes=[base.START];old_g={base.START:0.}
+        final=None
+        for f in base.rrt(seed=7):
+            if f.phase=='preview':
+                self.assertEqual(f.nodes,old_nodes);self.assertEqual(f.g,old_g)
+                self.assertIsNone(f.attempt[2])
+                a,b,_=f.attempt
+                self.assertAlmostEqual(f.candidate_cost,f.g[a]+math.dist(a,b))
+            else:
+                for a,b in f.edges:
+                    self.assertAlmostEqual(f.g[b],f.g[a]+math.dist(a,b))
+                old_nodes=f.nodes.copy();old_g=f.g.copy()
+            final=f
+        self.assertEqual(final.count,246)
+        self.assertAlmostEqual(final.g[base.GOAL],sum(math.dist(a,b) for a,b in zip(final.path,final.path[1:])))
+    def test_rrt_star_parent_preview_and_rewired_node_costs(self):
+        last_nodes=[base.START];last_g={base.START:0.};parent_frames=0
+        for f in rrt_star(seed=7,budget=150):
+            if f.phase in ['preview','parent']:
+                self.assertEqual(f.nodes,last_nodes);self.assertEqual(f.g,last_g)
+            if f.phase=='parent':
+                parent_frames+=1
+                self.assertNotIn(f.proposal,f.g)
+                self.assertAlmostEqual(f.candidate_cost,f.g[f.parent_node]+math.dist(f.parent_node,f.proposal))
+                self.assertIn('minimum g(parent)+edge',f.note)
+            if f.phase in ['grow','done']:
+                for a,b in f.edges:self.assertAlmostEqual(f.g[b],f.g[a]+math.dist(a,b))
+                last_nodes=f.nodes.copy();last_g=f.g.copy()
+        self.assertGreater(parent_frames,0)
+    def test_prm_preview_does_not_add_unchecked_edge(self):
+        last_edges=[]
+        for f in prm(seed=7,samples=12,k=3):
+            if f.phase=='edge_preview':
+                self.assertEqual(f.edges,last_edges)
+                self.assertIsNone(f.attempt[2]);self.assertIn('WHY:',f.note)
+            elif f.phase=='connect':last_edges=f.edges.copy()
+
 if __name__=='__main__':unittest.main()

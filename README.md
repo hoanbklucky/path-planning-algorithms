@@ -38,10 +38,14 @@ Use the same interpreter for installation and execution. If your Python installa
 ## Watch the decisions
 
 - **Dijkstra and A\*:** select the next node first, predict its neighbors' costs, then click **Inspect neighbors** to reveal updates.
-- **RRT:** watch accepted and rejected tree extensions.
-- **RRT\*:** watch parent selection, purple rewired edges, and improvements to the orange best path. It keeps searching after its first solution.
+- **RRT:** preview the random sample, nearest node, proposed disk, and candidate cost before checking its edge.
+- **RRT\*:** compare candidate parents by accumulated cost before adding the node, then watch purple rewired edges and improvements to the orange best path. It keeps searching after its first solution.
 - **PRM:** watch free samples, validated roadmap edges, then a two-phase Dijkstra query.
 - **Play / Pause**, **Reset**, **New random seed**, and **Events / sec** control playback.
+
+**Node disks and costs:** filled disks mark tree and roadmap vertices. The explanation panel identifies the next node or connection and explains why it is chosen. **Show costs** displays grid g+h=f or sampling-tree g from S; **All node costs** reveals every known cost. By default, dense trees label recent and relevant nodes so the map stays readable. Marker disks are visual symbols, not robot footprints.
+
+![Decision explanation and tree costs](assets/simulator_controls.png)
 
 The five planners share obstacle geometry. Grid planners use four-connected moves; sampling planners move continuously, so their route lengths are not a direct optimality contest.
 
@@ -64,3 +68,4 @@ python simulators/path_planning_sim.py --check
 ```
 
 This is a teaching implementation for a point robot in a known 2D environment. Actual robots need footprint handling, motion constraints, timing, and feedback control.
+

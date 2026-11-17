@@ -1,10 +1,11 @@
-"""Teaching simulator: Dijkstra, A*, and basic RRT. Python 3 + matplotlib."""
+"""Teaching simulator: Dijkstra, A*, RRT, RRT*, and PRM. Python 3 + matplotlib."""
 import argparse
 import heapq
 import itertools
 import math
 import random
 import time
+import textwrap
 from dataclasses import dataclass, field
 
 WIDTH, HEIGHT = 16, 12
@@ -80,6 +81,11 @@ class Frame:
     updated: set=field(default_factory=set)
     rewired: list=field(default_factory=list)
     best_cost: float=math.inf
+    candidate_cost: float=math.inf
+    next_node: object=None
+    proposal: object=None
+    parent_node: object=None
+    focus: set=field(default_factory=set)
 
 def grid_search(astar=False):
     count=itertools.count()
@@ -92,8 +98,10 @@ def grid_search(astar=False):
         front.discard(u)
         # Pause before relaxation: no neighbor costs or parents have changed yet.
         yield Frame('grid',current=u,closed=closed.copy(),frontier=front.copy(),
-                    g=g.copy(),h={n:heur(n) for n in g},count=len(closed),phase='select',
+                    g=g.copy(),h={n:heur(n) for n in g},count=len(closed),phase='select',next_node=u,
                     note=f'SELECT {u}: g={gu}, h={heur(u)}, f={gu+heur(u)}. Completed expansions={len(closed)}.\n'
+                         + ('WHY: smallest frontier f=g+h; ties prefer smaller h, then insertion order.\n'
+                            if astar else 'WHY: smallest frontier g; equal costs use insertion order.\n')
                          + ('The goal is selected. Next: finish and reveal the path.'
                             if u==GOAL else 'Next: inspect its neighbors and reveal any new or improved costs.'))
         closed.add(u)
@@ -112,37 +120,58 @@ def grid_search(astar=False):
             if ng<g.get(v,math.inf):
                 g[v]=ng;parent[v]=u;front.add(v);updated.add(v)
                 heapq.heappush(pq,(ng+heur(v),heur(v),next(count),v,ng))
+        live=[entry for entry in pq if entry[4]==g.get(entry[3]) and entry[3] not in closed]
+        nxt=min(live)[3] if live else None
+        why=(f'NEXT: {nxt}, g={g[nxt]}, h={heur(nxt)}, f={g[nxt]+heur(nxt)}. '
+             + ('Minimum frontier f; ties use lower h, then insertion order.' if astar
+                else 'Minimum frontier g; ties use insertion order.')) if nxt is not None else 'NEXT: frontier empty.'
         yield Frame('grid',current=u,closed=closed.copy(),frontier=front.copy(),
-                    g=g.copy(),h={n:heur(n) for n in g},count=len(closed),phase='expand',
+                    g=g.copy(),h={n:heur(n) for n in g},count=len(closed),phase='expand',next_node=nxt,
                     updated=updated,
                     note=f'INSPECT neighbors of {u}: {len(updated)} cost update(s). Completed expansions={len(closed)}.\n'
-                         'Orange outlines mark new or improved costs. Next: select the next node.')
+                         'Orange outlines mark new or improved costs.\n'+why)
     yield Frame('grid',closed=closed,count=len(closed),note='No path exists on this grid.')
 
 def rrt(seed=7,step=1.5,goal_bias=.1,budget=5000):
-    rng=random.Random(seed);nodes=[START];parents=[None];edges=[]
+    rng=random.Random(seed);nodes=[START];parents=[None];edges=[];costs=[0.]
     for k in range(1,budget+1):
-        sample=GOAL if rng.random()<goal_bias else (rng.uniform(-.5,WIDTH-.5),rng.uniform(-.5,HEIGHT-.5))
+        biased=rng.random()<goal_bias
+        sample=GOAL if biased else (rng.uniform(-.5,WIDTH-.5),rng.uniform(-.5,HEIGHT-.5))
         i=min(range(len(nodes)),key=lambda i:math.dist(nodes[i],sample));near=nodes[i]
         dist=math.dist(near,sample)
         if dist<1e-12:continue
         scale=min(1.,step/dist);new=tuple(near[j]+scale*(sample[j]-near[j]) for j in (0,1))
+        length=math.dist(near,new);candidate=costs[i]+length
+        intro=(f'Iteration {k}: {"goal-biased" if biased else "uniform random"} sample=({sample[0]:.2f}, {sample[1]:.2f}).\n'
+               f'Nearest is n{i}=({near[0]:.2f}, {near[1]:.2f}); distance to sample={dist:.2f}.\n'
+               f'Steer at most {step:.2f}: proposed node=({new[0]:.2f}, {new[1]:.2f}), edge length={length:.2f}.\n'
+               f'Candidate g(new)=g(n{i})+edge={costs[i]:.2f}+{length:.2f}={candidate:.2f}.')
+        yield Frame('rrt',current=near,nodes=nodes.copy(),edges=edges.copy(),sample=sample,
+                    proposal=new,parent_node=near,attempt=(near,new,None),g=dict(zip(nodes,costs)),
+                    focus={near},count=k,phase='preview',candidate_cost=candidate,
+                    note=intro+'\nNEXT: check the entire proposed edge for collision; add it only if valid.')
         ok=segment_free(near,new)
         if ok:
-            nodes.append(new);parents.append(i);edges.append((near,new))
+            nodes.append(new);parents.append(i);edges.append((near,new));costs.append(candidate)
             if math.dist(new,GOAL)<=step and segment_free(new,GOAL):
                 path=[GOAL];idx=len(nodes)-1
                 while idx is not None:path.append(nodes[idx]);idx=parents[idx]
                 path.reverse();cost=sum(math.dist(a,b) for a,b in zip(path,path[1:]))
-                yield Frame('rrt',nodes=nodes.copy(),edges=edges.copy(),path=path,count=k,
-                            note=f'Goal reached. Length={cost:.2f}; iterations={k}; tree nodes={len(nodes)}.')
+                g=dict(zip(nodes,costs));g[GOAL]=cost
+                yield Frame('rrt',current=new,parent_node=near,nodes=nodes.copy(),edges=edges.copy(),
+                            g=g,path=path,count=k,phase='done',best_cost=cost,
+                            note=f'Goal reached. Path cost={cost:.2f}; iterations={k}; tree nodes={len(nodes)}.\n'
+                                 'Every displayed g is distance from S along the tree, not distance from the random sample.')
                 return
-        yield Frame('rrt',current=new,nodes=nodes.copy(),edges=edges.copy(),sample=sample,
-                    attempt=(near,new,ok),count=k,
-                    note=f'Iteration {k}: {"accept" if ok else "reject collision"}; tree nodes={len(nodes)}; seed={seed}.')
-    yield Frame('rrt',nodes=nodes,edges=edges,count=budget,note='Budget exhausted. This does not prove no path exists.')
+        yield Frame('rrt',current=new if ok else near,nodes=nodes.copy(),edges=edges.copy(),
+                    g=dict(zip(nodes,costs)),sample=sample,proposal=new,parent_node=near,
+                    attempt=(near,new,ok),focus={near,new},count=k,phase='grow',
+                    note=intro+('\nACCEPT: add the disk and its parent edge. NEXT: draw a new random sample.'
+                                if ok else '\nREJECT: edge touches an obstacle. Tree and costs stay unchanged. NEXT: sample again.'))
+    yield Frame('rrt',nodes=nodes,edges=edges,g=dict(zip(nodes,costs)),count=budget,phase='done',
+                note='Budget exhausted. This does not prove no path exists.')
 
-def draw(ax,frame,labels=False):
+def draw(ax,frame,labels=False,all_costs=False):
     from matplotlib.patches import Rectangle
     from matplotlib.collections import LineCollection
     ax.clear();ax.set_aspect('equal');ax.set_xlim(-.5,WIDTH-.5);ax.set_ylim(-.5,HEIGHT-.5)
@@ -157,6 +186,8 @@ def draw(ax,frame,labels=False):
         for x,y in frame.updated:
             ax.add_patch(Rectangle((x-.46,y-.46),.92,.92,fill=False,
                                    edgecolor='#e37c1c',linewidth=2,zorder=4))
+        if frame.next_node is not None and frame.next_node!=frame.current:
+            ax.scatter(*frame.next_node,s=220,facecolors='none',edgecolors='#b54db2',linewidths=2,zorder=6)
         if labels:
             for (x,y),g in frame.g.items():
                 h=frame.h[(x,y)]
@@ -164,7 +195,16 @@ def draw(ax,frame,labels=False):
     else:
         if frame.edges:ax.add_collection(LineCollection(frame.edges,colors='#5596bf',linewidths=.8))
         if frame.nodes:
-            ax.scatter(*zip(*frame.nodes),s=7,color='#5596bf',zorder=2)
+            ax.scatter(*zip(*frame.nodes),s=32,color='#5596bf',edgecolors='white',linewidths=.5,zorder=4)
+        if frame.current is not None:
+            ax.scatter(*frame.current,s=100,color='#ffcc55',edgecolors='#9b751c',zorder=6)
+        if frame.parent_node is not None:
+            ax.scatter(*frame.parent_node,s=165,facecolors='none',edgecolors='#119c91',linewidths=2,zorder=6)
+        if frame.proposal is not None:
+            ax.scatter(*frame.proposal,s=90,facecolors='none',edgecolors='#b54db2',linewidths=2,zorder=6)
+        if labels and frame.proposal is not None and math.isfinite(frame.candidate_cost) and frame.proposal not in frame.g:
+            ax.annotate(f'tentative g={frame.candidate_cost:.2f}',frame.proposal,
+                        xytext=(5,-15),textcoords='offset points',fontsize=8,color='#8a3387',zorder=9)
         if frame.kind=='prm':
             for pts,color in [(frame.closed,'#395a80'),(frame.frontier,'#43ad60')]:
                 if pts:ax.scatter(*zip(*pts),s=24,color=color,zorder=4)
@@ -175,7 +215,20 @@ def draw(ax,frame,labels=False):
         if frame.sample is not None:ax.scatter(*frame.sample,marker='x',c='#bb55aa',s=50,zorder=5)
         if frame.attempt:
             a,b,ok=frame.attempt
-            ax.plot([a[0],b[0]],[a[1],b[1]],'--',c='#22aa55' if ok else '#dd3333',lw=2,zorder=5)
+            ax.plot([a[0],b[0]],[a[1],b[1]],'--',c='#7b7b7b' if ok is None else '#22aa55' if ok else '#dd3333',lw=2,zorder=5)
+        if frame.next_node is not None and frame.next_node!=frame.current:
+            ax.scatter(*frame.next_node,s=150,facecolors='none',edgecolors='#b54db2',linewidths=2,zorder=6)
+        if labels:
+            visible=set(frame.g) if all_costs or len(frame.g)<=35 else set(frame.nodes[-12:])
+            visible.update(frame.focus)
+            visible.update(q for q in [frame.current,frame.parent_node] if q is not None)
+            if frame.kind=='prm' and not all_costs:
+                visible=frame.focus | {q for q in [frame.current,frame.next_node] if q is not None}
+            for q in visible:
+                if q not in frame.g:continue
+                ax.annotate(f'g={frame.g[q]:.2f}',q,xytext=(5,6),textcoords='offset points',
+                            fontsize=7,color='#203c50',zorder=9,
+                            bbox=dict(facecolor='white',edgecolor='none',alpha=.80,pad=.6))
     if frame.path:
         ax.plot(*zip(*frame.path),color='#e37c1c',lw=2.7,zorder=6)
     ax.scatter(*START,c='#218944',s=70,edgecolors='white',zorder=7)
@@ -186,17 +239,19 @@ def draw(ax,frame,labels=False):
 def launch(seed=7):
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button,RadioButtons,CheckButtons,Slider
-    fig=plt.figure(figsize=(12,8));ax=fig.add_axes([.07,.20,.68,.73])
-    status=fig.text(.07,.1,'',fontsize=10)
-    fig.text(.79,.91,'Planner',weight='bold')
-    radio=RadioButtons(fig.add_axes([.79,.70,.18,.20]),['Dijkstra','A*','RRT','RRT*','PRM'])
-    checks=CheckButtons(fig.add_axes([.79,.60,.18,.07]),['Show g+h=f'],[False])
+    fig=plt.figure(figsize=(14,9));ax=fig.add_axes([.05,.33,.68,.60])
+    explanation=fig.add_axes([.05,.095,.68,.205]);explanation.axis('off')
+    status=explanation.text(0,1,'',va='top',fontsize=10)
+    fig.text(.78,.95,'Planner',weight='bold')
+    radio=RadioButtons(fig.add_axes([.78,.70,.20,.22]),['Dijkstra','A*','RRT','RRT*','PRM'])
+    checks=CheckButtons(fig.add_axes([.78,.565,.20,.10]),['Show costs','All node costs'],[True,False])
     btns={}
-    for label,y in [('Step',.53),('Play / Pause',.45),('Reset',.37),('New RRT seed',.29)]:
-        btns[label]=Button(fig.add_axes([.79,y,.18,.055]),label)
-    speed=Slider(fig.add_axes([.15,.035,.5,.025]),'Events / sec',1,20,valinit=2,valstep=1)
-    fig.text(.79,.12,'Blue: expanded / graph\nGreen: frontier / accepted\nYellow: selected node\nOrange outline: cost update\nRed dashed: rejected / old edge\nPurple line: rewired edge\nPurple ×: random sample\nOrange line: current best path',fontsize=8)
-    state=dict(planner='Dijkstra',seed=seed,running=False,labels=False,done=False,frame=Frame('grid'))
+    for label,y in [('Step',.49),('Play / Pause',.42),('Reset',.35),('New random seed',.28)]:
+        btns[label]=Button(fig.add_axes([.78,y,.20,.05]),label)
+    speed=Slider(fig.add_axes([.15,.035,.49,.025]),'Events / sec',1,20,valinit=2,valstep=1)
+    fig.text(.78,.075,'Disk: tree / roadmap node\nYellow: selected / nearest node\nTeal ring: selected parent\nPurple ring: proposed / NEXT node\nGray dash: unchecked proposal\nGreen / red dash: accepted / rejected\nPurple edge: RRT* rewire\nOrange: best path / grid cost update\ng: cost from S along current edges',fontsize=8.5)
+    state=dict(planner='Dijkstra',seed=seed,running=False,labels=True,all_costs=False,
+               done=False,frame=Frame('grid'))
     def reset(event=None):
         state['running']=False;state['done']=False;state['last_tick']=time.monotonic()
         from sampling_planners import rrt_star,prm
@@ -206,16 +261,27 @@ def launch(seed=7):
         state['gen']=factories[state['planner']]()
         state['frame']=Frame({'RRT':'rrt','RRT*':'rrtstar','PRM':'prm'}.get(state['planner'],'grid'));refresh()
     def refresh():
-        draw(ax,state['frame'],state['labels'])
+        draw(ax,state['frame'],state['labels'],state['all_costs'])
         phase=state['frame'].phase
-        phase_title={'select':'1 / 2  Selected node — predict its neighbor costs',
-                     'expand':'2 / 2  Neighbors inspected — costs revealed'}.get(phase,'Shared obstacle geometry')
-        ax.set_title(state['planner']+'   |   '+phase_title,fontsize=12)
-        btns['Step'].label.set_text('Reveal path' if phase=='select' and state['frame'].current==GOAL
-                                   else 'Inspect neighbors' if phase=='select'
-                                   else 'Select next node' if state['planner'] in ['Dijkstra','A*'] or phase=='expand' else 'Step')
-        btns['New RRT seed'].label.set_text('New random seed')
-        status.set_text(state['frame'].note or 'Press Select next node or Play.\nGrid search alternates selection and neighbor inspection.')
+        phase_title={'select':'Selected node: predict its neighbor costs',
+                     'expand':'Neighbors inspected: next node is ringed',
+                     'preview':'Preview: predict the connection',
+                     'edge_preview':'Preview: check a proposed roadmap edge',
+                     'sample_preview':'Preview: test a sampled configuration',
+                     'grow':'Tree updated',
+                     'parent':'Compare parents before adding the node',
+                     'done':'Run complete'}.get(phase,'Shared obstacle geometry')
+        ax.set_title(state['planner']+' | '+phase_title,fontsize=12)
+        step_label=('Reveal path' if phase=='select' and state['frame'].current==GOAL
+                    else 'Inspect neighbors' if phase=='select'
+                    else 'Check / connect' if phase in ['preview','parent','edge_preview','sample_preview']
+                    else 'Select next node' if state['planner'] in ['Dijkstra','A*'] or phase=='expand'
+                    else 'Next sample / edge')
+        btns['Step'].label.set_text(step_label)
+        note=state['frame'].note or ('NEXT: select the minimum-cost frontier node, then inspect its neighbors.'
+                 if state['planner'] in ['Dijkstra','A*'] else
+                 'NEXT: draw a sample; the preview will explain which node or edge is considered and why.')
+        status.set_text('\n'.join(textwrap.fill(line,width=105) for line in note.splitlines()))
         fig.canvas.draw_idle()
     def advance(event=None):
         if state['done']:return
@@ -225,22 +291,21 @@ def launch(seed=7):
             state['done']=True;state['running']=False
         refresh()
     def manual_step(event):
-        state['running']=False
-        advance()
+        state['running']=False;advance()
     def play(event):
         state['running']=not state['running'] if not state['done'] else False
         state['last_tick']=time.monotonic()
     def choose(label):state['planner']=label;reset()
-    def labels(label):state['labels']=not state['labels'];refresh()
+    def labels(label):
+        key='labels' if label=='Show costs' else 'all_costs'
+        state[key]=not state[key];refresh()
     def reseed(event):state['seed']+=1;reset()
     def tick():
         if state['running'] and time.monotonic()-state['last_tick']>=1/float(speed.val):
-            state['last_tick']=time.monotonic()
-            # Exactly one visible event per tick; never batch past selection.
-            advance()
+            state['last_tick']=time.monotonic();advance()
     radio.on_clicked(choose);checks.on_clicked(labels)
     btns['Step'].on_clicked(manual_step);btns['Play / Pause'].on_clicked(play)
-    btns['Reset'].on_clicked(reset);btns['New RRT seed'].on_clicked(reseed)
+    btns['Reset'].on_clicked(reset);btns['New random seed'].on_clicked(reseed)
     timer=fig.canvas.new_timer(interval=50);timer.add_callback(tick);timer.start()
     reset();plt.show()
 
@@ -272,3 +337,4 @@ if __name__=='__main__':
     args=parser.parse_args()
     if args.check:verify()
     else:launch(args.seed)
+

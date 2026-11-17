@@ -17,16 +17,32 @@ Use `py` on Windows or `python3` on macOS/Linux if needed. Install and run with 
 | Select next node | Highlight the chosen grid node before changing neighbor costs |
 | Inspect neighbors | Reveal new or improved costs on the following click |
 | Reveal path | Finish when the selected node is the goal |
-| Step | One sampling or edge-check event; PRM query uses the two-phase search |
+| Next sample / edge | Preview a sample or proposed connection before updating the tree or roadmap |
+| Check / connect | Check or apply the previewed connection; RRT* also shows a separate parent-comparison phase |
 | Play / Pause | Animate one visible event at a time |
 | Reset | Repeat the selected algorithm with the same seed |
 | New random seed | Increment the seed and reset the selected planner |
-| Show g+h=f | Display grid-search cost labels |
+| Show costs | Grid g+h=f; RRT and RRT* cost g from S along current tree edges; PRM query g |
+| All node costs | Show every known cost instead of restricting labels on dense trees |
 | Events / sec | Playback speed, default 2; use higher values for roadmap construction |
 
 Manual stepping pauses playback. Costs discovered on earlier expansions remain visible during selection; new costs appear only during inspection. Yellow means selected, blue means expanded or a tree/roadmap edge, green means frontier or accepted edge, and orange outlines mark grid cost updates. Purple lines show RRT\* rewires; orange lines show the current best solution.
 
 RRT\* continues until its budget is exhausted. A visible solution is not an instruction to stop.
+
+## Understand the decision panel and costs
+
+After a grid expansion, a purple ring marks the actual next frontier node. The panel gives its coordinates, g/h/f values, selection rule, and tie rule. The following Select click highlights that node before neighbor costs change.
+
+For RRT, the preview explains the random or goal-biased sample, nearest node, steering distance, and tentative g(new)=g(parent)+edge length. A hollow purple disk marks the proposed point; a gray dashed edge is still unchecked. A new filled disk appears only when accepted.
+
+RRT* adds a parent-comparison phase: the panel lists the best collision-free candidate totals and identifies the minimum-cost parent. The teal ring marks that parent; it may differ from the yellow nearest node. After rewiring, displayed g values include updates to affected descendants.
+
+PRM explains why candidate edges are considered (k-nearest neighbors), then why query nodes are selected (minimum g). Costs from S are unknown during roadmap construction, so those labels appear during the query.
+
+For sampling trees, g is accumulated distance along tree edges, **not** straight-line distance from S and not an A* f value. The displayed best complete-path cost is separate from a new node's tentative cost. All costs use map distance units.
+
+Show costs is on by default. For at most 35 known tree costs, every label appears; larger trees show the most recent 12 plus selected, parent, candidate-parent, and rewired nodes. Enable All node costs to show all known labels (they can overlap). PRM normally labels just the current and next query nodes. Node disks are display markers, not the robot radius.
 
 ## Predict, step, explain
 
@@ -78,3 +94,4 @@ python simulators/path_planning_sim.py --check
 ```
 
 Tests cover phase separation, path validity, descendant cost propagation, monotone RRT\* incumbents, tree reachability, finite-roadmap optimality against Bellman-Ford, and a disconnected PRM case.
+
